@@ -55,6 +55,11 @@
   const SPIDER_R = 20;
   const SPIDER_LAND_Y = PLAYER_Y - 18 - SPIDER_R;
   const ROCK_SPEED = 400;
+  const DIFF_KEY = 'hogwarts-invaders-difficulty';
+  const DIFFICULTY = {
+    easy: { name: 'Kids', lives: 5, enemySpeed: 0.6, speedup: 3, fireInterval: 1.9, boltSpeed: 0.65, enemyBolts: 0.5, shotCooldown: 0.3, playerBolts: 3, drop: 12, dragonDescent: 0.6, dragonHp: 2, spiderSpeed: 0.6 },
+    normal: { name: 'Normal', lives: 3, enemySpeed: 1, speedup: 5, fireInterval: 1, boltSpeed: 1, enemyBolts: 1, shotCooldown: SHOT_COOLDOWN, playerBolts: MAX_PLAYER_BOLTS, drop: DROP, dragonDescent: 1, dragonHp: DRAGON_HEAD_HP, spiderSpeed: 1 },
+  };
   const HEROES = {
     hermione: { name: 'Hermione', src: 'img/hermione.png?v=2' },
     harry: { name: 'Harry', src: 'img/harry.png?v=2' },
@@ -63,7 +68,7 @@
   const DRAGON_FACE = new Image();
   DRAGON_FACE.src = 'img/dragon-face.png?v=1';
   const SPIDER_FACE = new Image();
-  SPIDER_FACE.src = 'img/spider-face.png?v=1';
+  SPIDER_FACE.src = 'img/spider-face.png?v=2';
 
   const $ = (sel) => document.querySelector(sel);
   const rand = (a, b) => a + Math.random() * (b - a);
@@ -87,6 +92,9 @@
     pauseToggle: $('#pause-toggle'),
     heroToggle: $('#hero-toggle'),
     heroButtons: document.querySelectorAll('.hero-btn'),
+    modeToggle: $('#mode-toggle'),
+    modeButtons: document.querySelectorAll('.mode-btn'),
+    livesCount: $('#lives-count'),
   };
   const ctx = els.canvas.getContext('2d');
 
@@ -323,8 +331,8 @@
     if (SPIDER_FACE.complete && SPIDER_FACE.naturalWidth) g.drawImage(SPIDER_FACE, -R, -R, R * 2, R * 2);
     else { g.fillStyle = '#c99a80'; g.fillRect(-R, -R, R * 2, R * 2); }
     const vig = g.createRadialGradient(0, 0, R * 0.6, 0, 0, R);
-    vig.addColorStop(0, 'rgba(20,30,0,0)');
-    vig.addColorStop(1, 'rgba(10,20,0,0.55)');
+    vig.addColorStop(0, 'rgba(6,4,12,0.45)');
+    vig.addColorStop(1, 'rgba(4,6,0,0.9)');
     g.fillStyle = vig;
     g.fillRect(-R, -R, R * 2, R * 2);
     g.restore();
@@ -822,6 +830,7 @@
     score: 0,
     best: Number(load(BEST_KEY, '0')) || 0,
     lives: START_LIVES,
+    difficulty: DIFFICULTY[load(DIFF_KEY, 'easy')] ? load(DIFF_KEY, 'easy') : 'easy',
     endReason: null,
     hero: HEROES[load(HERO_KEY, 'hermione')] ? load(HERO_KEY, 'hermione') : 'hermione',
     shots: 0,
@@ -850,14 +859,17 @@
     banner: 0,
   };
   const keys = { left: false, right: false, fire: false };
+  const touch = { active: false, x: W / 2, id: null };
+  const diff = () => DIFFICULTY[game.difficulty];
 
   function levelParams(level) {
     const l = level - 1;
+    const d = diff();
     return {
-      baseSpeed: Math.min(30 + l * 7, 75),
-      fireInterval: Math.max(0.35, 1.1 - l * 0.1),
-      boltSpeed: Math.min(230 + l * 25, 420),
-      maxEnemyBolts: Math.min(3 + Math.floor(l / 2), 7),
+      baseSpeed: Math.min(30 + l * 7, 75) * d.enemySpeed,
+      fireInterval: Math.max(0.35, 1.1 - l * 0.1) * d.fireInterval,
+      boltSpeed: Math.min(230 + l * 25, 420) * d.boltSpeed,
+      maxEnemyBolts: Math.max(1, Math.round(Math.min(3 + Math.floor(l / 2), 7) * d.enemyBolts)),
       startY: HUD_H + 50 + Math.min(l, 6) * 12,
     };
   }
@@ -916,7 +928,7 @@
 
   function newGame() {
     game.score = 0;
-    game.lives = START_LIVES;
+    game.lives = diff().lives;
     game.endReason = null;
     game.shots = 0;
     game.stupefy = 0;
@@ -1070,7 +1082,7 @@
   function aliveSpeed() {
     const p = levelParams(game.level);
     const killed = 1 - game.alive / game.enemies.length;
-    return p.baseSpeed * (1 + 5 * Math.pow(killed, 1.6));
+    return p.baseSpeed * (1 + diff().speedup * Math.pow(killed, 1.6));
   }
 
   function updatePlaying(dt) {
@@ -1080,16 +1092,22 @@
     game.stupefy = Math.max(0, game.stupefy - dt);
 
     // Player
-    const move = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
-    pl.x = Math.max(24, Math.min(W - 24, pl.x + move * PLAYER_SPEED * dt));
+    let move = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
+    let moveSpeed = PLAYER_SPEED;
+    if (touch.active && !move) {
+      const dx = touch.x - pl.x;
+      move = Math.abs(dx) < 3 ? 0 : Math.sign(dx);
+      moveSpeed = Math.min(PLAYER_SPEED * 1.5, Math.abs(dx) / dt);
+    }
+    pl.x = Math.max(24, Math.min(W - 24, pl.x + move * moveSpeed * dt));
     pl.cooldown -= dt;
     pl.invuln = Math.max(0, pl.invuln - dt);
-    if (keys.fire && pl.cooldown <= 0 && game.playerBolts.length < MAX_PLAYER_BOLTS) {
+    if ((keys.fire || touch.active) && pl.cooldown <= 0 && game.playerBolts.length < diff().playerBolts) {
       game.shots++;
       const big = game.shots % STUPEFY_EVERY === 0;
       const len = big ? BIG_BOLT_LEN : BOLT_LEN;
       game.playerBolts.push({ x: pl.x + 20, y: PLAYER_Y - 42 - len, len, big });
-      pl.cooldown = SHOT_COOLDOWN;
+      pl.cooldown = diff().shotCooldown;
       if (big) {
         game.stupefy = STUPEFY_BANNER_S;
         sfx.stupefy();
@@ -1117,11 +1135,11 @@
     if (game.dir > 0 && right > W - SIDE_MARGIN) {
       game.fx -= right - (W - SIDE_MARGIN);
       game.dir = -1;
-      game.fy += DROP;
+      game.fy += diff().drop;
     } else if (game.dir < 0 && left < SIDE_MARGIN) {
       game.fx += SIDE_MARGIN - left;
       game.dir = 1;
-      game.fy += DROP;
+      game.fy += diff().drop;
     }
     game.beatTimer -= dt;
     if (game.beatTimer <= 0) {
@@ -1268,7 +1286,7 @@
 
   function spawnDragon() {
     const dir = Math.random() < 0.5 ? 1 : -1;
-    game.dragon = { x: dir > 0 ? -220 : W + 220, y: HUD_H + 80, dir, t: 0, hp: DRAGON_HEAD_HP, flash: 0, entered: false };
+    game.dragon = { x: dir > 0 ? -220 : W + 220, y: HUD_H + 80, dir, t: 0, hp: diff().dragonHp, flash: 0, entered: false };
     game.dragonBanner = DRAGON_BANNER_S;
     sfx.roar();
   }
@@ -1287,7 +1305,7 @@
     const nx = Math.max(rect.x, Math.min(h.x, rect.x + rect.w));
     const ny = Math.max(rect.y, Math.min(h.y, rect.y + rect.h));
     if (Math.hypot(nx - h.x, ny - h.y) <= DRAGON_HEAD_R * DRAGON_SCALE) {
-      d.hp -= bolt.big ? DRAGON_HEAD_HP : 1;
+      d.hp -= bolt.big ? diff().dragonHp : 1;
       d.flash = 0.15;
       burst(h.x, h.y, ['#ff5a36', '#ffd84a', '#ffffff'], 16, 180);
       if (d.hp <= 0) killDragon(d);
@@ -1327,7 +1345,7 @@
       if (d.dir > 0 && d.x > W - margin) d.dir = -1;
       else if (d.dir < 0 && d.x < margin) d.dir = 1;
     }
-    d.y += DRAGON_DESCENT * (1 + 0.12 * (p.baseSpeed / 30 - 1)) * dt;
+    d.y += DRAGON_DESCENT * diff().dragonDescent * (1 + 0.12 * (p.baseSpeed / 30 - 1)) * dt;
     const body = dragonBody(d);
     if (body.y + body.h + 14 >= SHIELD_Y) erodeShields({ ...body, h: body.h + 14 });
     if (d.y >= DRAGON_LAND_Y && game.state === 'playing') {
@@ -1347,7 +1365,7 @@
     }
     const lvl = 1 + 0.08 * (game.level - 1);
     for (const x of xs) {
-      game.spiders.push({ x, ax: x, y: HUD_H + rand(10, 60), vy: rand(24, 36) * lvl, t: Math.random() * 10 });
+      game.spiders.push({ x, ax: x, y: HUD_H + rand(10, 60), vy: rand(24, 36) * lvl * diff().spiderSpeed, t: Math.random() * 10 });
     }
     floatText(W / 2, H * 0.55, 'Spiders!', '#c9ff7a');
     sfx.spiders();
@@ -1695,8 +1713,11 @@
     g.font = 'bold 17px "Palatino Linotype", Palatino, Georgia, serif';
     g.textAlign = 'right';
     g.fillStyle = '#a99d84';
-    g.fillText('LIVES', W - 106, HUD_H / 2);
-    for (let i = 0; i < START_LIVES; i++) drawHeart(g, W - 84 + i * 28, HUD_H / 2 + 1, 22, i < game.lives);
+    const maxLives = Math.max(diff().lives, game.lives);
+    const gap = maxLives > 3 ? 23 : 28;
+    const x0 = W - 28 - (maxLives - 1) * gap;
+    g.fillText('LIVES', x0 - 22, HUD_H / 2);
+    for (let i = 0; i < maxLives; i++) drawHeart(g, x0 + i * gap, HUD_H / 2 + 1, maxLives > 3 ? 19 : 22, i < game.lives);
     g.textBaseline = 'alphabetic';
   }
 
@@ -1748,8 +1769,43 @@
   });
   window.addEventListener('blur', () => {
     keys.left = keys.right = keys.fire = false;
+    touch.active = false;
     setPaused(true);
   });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      keys.left = keys.right = keys.fire = false;
+      touch.active = false;
+      setPaused(true);
+    }
+  });
+  const touchX = (e) => {
+    const r = els.canvas.getBoundingClientRect();
+    return ((e.clientX - r.left) / r.width) * W;
+  };
+  els.canvas.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    touch.active = true;
+    touch.id = e.pointerId;
+    touch.x = touchX(e);
+    if (els.canvas.setPointerCapture) els.canvas.setPointerCapture(e.pointerId);
+  });
+  els.canvas.addEventListener('pointermove', (e) => {
+    if (touch.active && e.pointerId === touch.id) { e.preventDefault(); touch.x = touchX(e); }
+  });
+  const endTouch = (e) => { if (e.pointerId === touch.id) { touch.active = false; touch.id = null; } };
+  els.canvas.addEventListener('pointerup', endTouch);
+  els.canvas.addEventListener('pointercancel', endTouch);
+  function unlockAudio() {
+    const c = ac();
+    if (!c || audio.unlocked) return;
+    const src = c.createBufferSource();
+    src.buffer = c.createBuffer(1, 1, 22050);
+    src.connect(c.destination);
+    src.start(0);
+    audio.unlocked = true;
+  }
+  ['pointerdown', 'touchend', 'keydown'].forEach((ev) => window.addEventListener(ev, unlockAudio, { passive: true }));
   document.querySelectorAll('.touch-controls [data-key]').forEach((btn) => {
     const k = btn.dataset.key;
     const down = (e) => {
@@ -1783,6 +1839,15 @@
     els.heroToggle.textContent = `Wizard: ${HEROES[key].name}`;
   }
 
+  function setDifficulty(key) {
+    if (!DIFFICULTY[key]) return;
+    game.difficulty = key;
+    save(DIFF_KEY, key);
+    els.modeButtons.forEach((b) => b.setAttribute('aria-checked', String(b.dataset.mode === key)));
+    els.modeToggle.textContent = `Mode: ${DIFFICULTY[key].name}`;
+    els.livesCount.textContent = DIFFICULTY[key].lives;
+  }
+
   function toggleSound() {
     audio.on = !audio.on;
     save(SOUND_KEY, audio.on ? 'on' : 'off');
@@ -1800,6 +1865,8 @@
   els.soundToggle.addEventListener('click', toggleSound);
   els.heroToggle.addEventListener('click', () => setHero(game.hero === 'hermione' ? 'harry' : 'hermione'));
   els.heroButtons.forEach((b) => b.addEventListener('click', () => setHero(b.dataset.hero)));
+  els.modeToggle.addEventListener('click', () => setDifficulty(game.difficulty === 'easy' ? 'normal' : 'easy'));
+  els.modeButtons.forEach((b) => b.addEventListener('click', () => setDifficulty(b.dataset.mode)));
   window.addEventListener('resize', resize);
 
   // ---------- Boot ----------
@@ -1821,8 +1888,9 @@
   paintLegend();
   paintHeroPreviews();
   setHero(game.hero);
+  setDifficulty(game.difficulty);
   resize();
   requestAnimationFrame(loop);
 
-  window.HogwartsInvaders = { game, keys, music, newGame, startLevel, spawnDragon, killDragon, spawnSpiders, rockRain };
+  window.HogwartsInvaders = { game, keys, music, newGame, startLevel, spawnDragon, killDragon, spawnSpiders, rockRain, setDifficulty, touch };
 })();

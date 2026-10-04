@@ -31,3 +31,8 @@ Apart from the two character face photos in `img/`, all sprites are drawn on the
 - `index.html`: page, HUD buttons, start, pause and game-over screens
 - `style.css`: Gryffindor gold and red theme
 - `js/space-invaders.js`: game loop, entities, collisions, sprites and sound
+
+## Mobile & Kids mode
+
+- On phones/tablets: drag a finger across the game to move (spells cast while touching), or use the big on-screen buttons. Works in portrait and landscape.
+- **Kids** mode (default) is slower and easier: 5 lives, slower enemies and enemy spells, faster casting, 2-hit dragon. Switch with the start-screen picker or the **Mode** button.
