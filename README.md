@@ -6,7 +6,8 @@ Open `index.html` in a browser (or serve the folder, e.g. `python3 -m http.serve
 
 ## How to play
 - **Move:** Left/Right arrows or A/D
-- **Cast a spell:** Space (short cooldown between shots)
+- **Cast a spell:** Space (short cooldown between shots). Every 10th spell is a bigger red **Stupefy** that also stuns enemies next to the one it hits.
+- **Pick your wizard:** Hermione or Harry on the start screen (keys 1 / 2), or with the Wizard button in the header
 - **Pause:** P or Esc · **Sound:** M
 - Touch devices get on-screen Left / Cast / Right buttons.
 
@@ -19,7 +20,7 @@ Dementors and Death Eaters march across the sky as one formation, dropping a row
 | Dementor | 10 |
 | Golden Snitch | 150+ (more on higher levels) |
 
-All sprites are drawn on the canvas, and the sound effects are generated with the Web Audio API, so there are no image or audio assets. Your best score is saved in `localStorage`.
+Apart from the two character face photos in `img/`, all sprites are drawn on the canvas, and the sound effects are generated with the Web Audio API, so there are no image or audio assets. Your best score is saved in `localStorage`.
 
 ## Files
 - `index.html`: page, HUD buttons, start, pause and game-over screens

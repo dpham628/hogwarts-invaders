@@ -100,3 +100,15 @@ kbd {
   .legend { grid-template-columns: 1fr; }
   .scroll { gap: 6px; }
 }
+
+.hero-picker { display: flex; gap: 14px; }
+.hero-btn {
+  font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer;
+  padding: 6px 16px 8px; border-radius: 10px; border: 2px solid #d4af3740; background: #ffffff08; color: var(--text);
+  transition: border-color 0.15s, background 0.15s, transform 0.05s;
+}
+.hero-btn:hover { background: #ffffff14; }
+.hero-btn[aria-checked='true'] { border-color: var(--gold); background: #ae000140; box-shadow: 0 0 14px #d4af3755; }
+.hero-btn span { font-weight: 700; color: var(--gold-light); }
+.hero-preview { width: 64px; height: 72px; }
+.stupefy-text { color: #ff4d4d; }

@@ -35,6 +35,15 @@
   const POINTS = { captain: 40, eater: 20, dementor: 10 };
   const BEST_KEY = 'hogwarts-invaders-best';
   const SOUND_KEY = 'hogwarts-invaders-sound';
+  const HERO_KEY = 'hogwarts-invaders-hero';
+  const STUPEFY_EVERY = 10;
+  const BIG_BOLT_LEN = 30;
+  const BLAST_R = 44;
+  const STUPEFY_BANNER_S = 1.1;
+  const HEROES = {
+    hermione: { name: 'Hermione', src: 'img/hermione.png?v=2' },
+    harry: { name: 'Harry', src: 'img/harry.png?v=2' },
+  };
 
   const $ = (sel) => document.querySelector(sel);
   const rand = (a, b) => a + Math.random() * (b - a);
@@ -56,6 +65,8 @@
     best: $('#best'),
     soundToggle: $('#sound-toggle'),
     pauseToggle: $('#pause-toggle'),
+    heroToggle: $('#hero-toggle'),
+    heroButtons: document.querySelectorAll('.hero-btn'),
   };
   const ctx = els.canvas.getContext('2d');
 
@@ -125,12 +136,13 @@
     hurt() { noise(0.6, 0.18); tone('sawtooth', 320, 40, 0.7, 0.07); },
     snitch() { [0, 0.07, 0.14, 0.21].forEach((d, i) => tone('triangle', 1200 + i * 300, 1700 + i * 300, 0.09, 0.05, d)); },
     march(i) { const f = MARCH[i % 4]; tone('square', f, f * 0.92, 0.09, 0.04); },
+    stupefy() { noise(0.35, 0.12); tone('sawtooth', 180, 900, 0.3, 0.06); tone('square', 900, 300, 0.4, 0.04, 0.1); },
     clear() { [523, 659, 784, 1047].forEach((f, i) => tone('triangle', f, f, 0.24, 0.06, i * 0.13)); },
     over() { [392, 330, 262, 196].forEach((f, i) => tone('sawtooth', f, f * 0.97, 0.38, 0.045, i * 0.26)); },
   };
 
   // ---------- Sprites (canvas-drawn) ----------
-  function drawWizard(g, x, y, t, wandReady) {
+  function drawWizard(g, x, y, t, wandReady, hero) {
     g.save();
     g.translate(x, y);
     const robe = g.createLinearGradient(0, -30, 0, 0);
@@ -156,26 +168,7 @@
     g.fillRect(3, -30, 2, 5);
     g.fillRect(2, -22, 5, 2);
     g.fillRect(2, -17, 5, 2);
-    // Head + glasses
-    g.fillStyle = '#f1c9a5';
-    g.beginPath(); g.arc(0, -36, 7, 0, Math.PI * 2); g.fill();
-    g.strokeStyle = '#1a1a1a';
-    g.lineWidth = 1.2;
-    g.beginPath(); g.arc(-3, -36, 2.3, 0, Math.PI * 2); g.stroke();
-    g.beginPath(); g.arc(3, -36, 2.3, 0, Math.PI * 2); g.stroke();
-    g.beginPath(); g.moveTo(-0.7, -36); g.lineTo(0.7, -36); g.stroke();
-    // Hat
-    const sway = Math.sin(t * 3) * 1.5;
-    g.fillStyle = '#3b2a5e';
-    g.beginPath(); g.ellipse(0, -41, 13, 3.2, 0, 0, Math.PI * 2); g.fill();
-    g.beginPath();
-    g.moveTo(-9, -42);
-    g.lineTo(9, -42);
-    g.quadraticCurveTo(4, -52, 8 + sway, -60);
-    g.quadraticCurveTo(-2, -54, -9, -42);
-    g.fill();
-    g.fillStyle = '#d4af37';
-    g.fillRect(-8, -45, 16, 2.5);
+    drawHead(g, hero);
     // Wand
     g.strokeStyle = '#7a4a22';
     g.lineWidth = 2.5;
@@ -188,6 +181,37 @@
       g.beginPath(); g.arc(20, -41, 2.4, 0, Math.PI * 2); g.fill();
     }
     g.restore();
+  }
+
+  function drawHead(g, heroKey) {
+    const hero = HEROES[heroKey] || HEROES.hermione;
+    const hy = -42;
+    const hr = 15;
+    if (heroKey === 'hermione') {
+      g.fillStyle = '#5a3415';
+      for (const [dx, dy, r] of [[-13, -2, 8], [13, -2, 8], [-11, 8, 7], [11, 8, 7], [0, -12, 10], [-9, -10, 8], [9, -10, 8], [-14, 6, 6], [14, 6, 6]]) {
+        g.beginPath(); g.arc(dx, hy + dy, r, 0, Math.PI * 2); g.fill();
+      }
+    }
+    if (hero.img && hero.img.complete && hero.img.naturalWidth) {
+      g.drawImage(hero.img, -hr, hy - hr, hr * 2, hr * 2);
+    } else {
+      g.fillStyle = '#f1c9a5';
+      g.beginPath(); g.arc(0, hy, hr, 0, Math.PI * 2); g.fill();
+    }
+    g.strokeStyle = '#d4af37';
+    g.lineWidth = 1.2;
+    g.beginPath(); g.arc(0, hy, hr, 0, Math.PI * 2); g.stroke();
+    if (heroKey === 'harry') {
+      g.strokeStyle = 'rgba(15,15,15,0.85)';
+      g.lineWidth = 1.3;
+      g.beginPath(); g.arc(-5, hy + 1, 3.8, 0, Math.PI * 2); g.stroke();
+      g.beginPath(); g.arc(4, hy + 1, 3.8, 0, Math.PI * 2); g.stroke();
+      g.beginPath(); g.moveTo(-1.2, hy + 0.5); g.lineTo(0.2, hy + 0.5); g.stroke();
+      g.strokeStyle = '#ffd84a';
+      g.lineWidth = 1.4;
+      g.beginPath(); g.moveTo(-2, hy - 12); g.lineTo(-5, hy - 9); g.lineTo(-2, hy - 8); g.lineTo(-5, hy - 5); g.stroke();
+    }
   }
 
   function aura(g, color, r) {
@@ -325,6 +349,12 @@
     g.restore();
   }
 
+  for (const h of Object.values(HEROES)) {
+    h.img = new Image();
+    h.img.onload = paintHeroPreviews;
+    h.img.src = h.src;
+  }
+
   // ---------- Background ----------
   const bg = document.createElement('canvas');
   bg.width = W;
@@ -388,6 +418,9 @@
     best: Number(load(BEST_KEY, '0')) || 0,
     lives: START_LIVES,
     endReason: null,
+    hero: HEROES[load(HERO_KEY, 'hermione')] ? load(HERO_KEY, 'hermione') : 'hermione',
+    shots: 0,
+    stupefy: 0,
     player: { x: W / 2, cooldown: 0, invuln: 0 },
     playerBolts: [],
     enemyBolts: [],
@@ -472,6 +505,8 @@
     game.score = 0;
     game.lives = START_LIVES;
     game.endReason = null;
+    game.shots = 0;
+    game.stupefy = 0;
     game.particles = [];
     game.texts = [];
     els.start.classList.add('hidden');
@@ -623,6 +658,7 @@
     const pl = game.player;
     const p = levelParams(game.level);
     game.banner = Math.max(0, game.banner - dt);
+    game.stupefy = Math.max(0, game.stupefy - dt);
 
     // Player
     const move = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
@@ -630,9 +666,17 @@
     pl.cooldown -= dt;
     pl.invuln = Math.max(0, pl.invuln - dt);
     if (keys.fire && pl.cooldown <= 0 && game.playerBolts.length < MAX_PLAYER_BOLTS) {
-      game.playerBolts.push({ x: pl.x + 20, y: PLAYER_Y - 42 - BOLT_LEN });
+      game.shots++;
+      const big = game.shots % STUPEFY_EVERY === 0;
+      const len = big ? BIG_BOLT_LEN : BOLT_LEN;
+      game.playerBolts.push({ x: pl.x + 20, y: PLAYER_Y - 42 - len, len, big });
       pl.cooldown = SHOT_COOLDOWN;
-      sfx.cast();
+      if (big) {
+        game.stupefy = STUPEFY_BANNER_S;
+        sfx.stupefy();
+      } else {
+        sfx.cast();
+      }
     }
 
     // Formation
@@ -668,8 +712,9 @@
     // Player bolts
     for (const b of game.playerBolts) b.y -= BOLT_SPEED * dt;
     game.playerBolts = game.playerBolts.filter((b) => {
-      const rect = { x: b.x - 4, y: b.y, w: 8, h: BOLT_LEN };
-      if (b.y + BOLT_LEN < HUD_H) return false;
+      const half = b.big ? 10 : 4;
+      const rect = { x: b.x - half, y: b.y, w: half * 2, h: b.len };
+      if (b.y + b.len < HUD_H) return false;
       const hit = hitShield(rect, 'up');
       if (hit) { burst(hit.x, hit.y, ['#7fd6ff', '#cfefff'], 6, 90); sfx.shield(); return false; }
       for (let i = 0; i < game.enemyBolts.length; i++) {
@@ -679,6 +724,7 @@
           burst(b.x, b.y, ['#ffe66b', '#fff', '#5dff8a'], 10, 110);
           game.score += 5;
           sfx.clash();
+          if (b.big) { i--; continue; }
           return false;
         }
       }
@@ -695,13 +741,17 @@
         if (!e.alive) continue;
         const er = enemyRect(e);
         if (overlap(rect, er)) {
-          e.alive = false;
-          game.alive--;
-          game.score += POINTS[e.type];
-          const colors = e.type === 'dementor' ? ['#9fb4d8', '#e4ecff', '#5a5f6e'] : ['#ff5a36', '#f3d77a', '#ffffff'];
-          burst(er.x + ENEMY_W / 2, er.y + ENEMY_H / 2, colors, 18);
-          floatText(er.x + ENEMY_W / 2, er.y, `+${POINTS[e.type]}`);
-          sfx.kill();
+          const cx = er.x + ENEMY_W / 2;
+          const cy = er.y + ENEMY_H / 2;
+          killEnemy(e);
+          if (b.big) {
+            for (const o of game.enemies) {
+              if (!o.alive) continue;
+              const or = enemyRect(o);
+              if (Math.hypot(or.x + ENEMY_W / 2 - cx, or.y + ENEMY_H / 2 - cy) <= BLAST_R) killEnemy(o);
+            }
+            burst(cx, cy, ['#ff3b3b', '#ffd84a', '#ffffff'], 40, 260);
+          }
           return false;
         }
       }
@@ -786,12 +836,24 @@
     }
   }
 
+  function killEnemy(e) {
+    const er = enemyRect(e);
+    e.alive = false;
+    game.alive--;
+    game.score += POINTS[e.type];
+    const colors = e.type === 'dementor' ? ['#9fb4d8', '#e4ecff', '#5a5f6e'] : ['#ff5a36', '#f3d77a', '#ffffff'];
+    burst(er.x + ENEMY_W / 2, er.y + ENEMY_H / 2, colors, 18);
+    floatText(er.x + ENEMY_W / 2, er.y, `+${POINTS[e.type]}`);
+    sfx.kill();
+  }
+
   function playerHit() {
     if (game.state !== 'playing') return;
     if (game.lives > 0) game.lives--;
     burst(game.player.x, PLAYER_Y - 24, ['#ffd84a', '#ff5a36', '#ffffff', '#ae0001'], 40, 220);
     game.state = 'dying';
     game.timer = DYING_S;
+    game.stupefy = 0;
     game.enemyBolts = [];
     game.playerBolts = [];
     sfx.hurt();
@@ -835,7 +897,7 @@
 
     const pl = game.player;
     const showPlayer = game.state !== 'dying' && game.state !== 'gameover' && !(pl.invuln > 0 && Math.floor(t * 12) % 2);
-    if (showPlayer) drawWizard(g, pl.x, PLAYER_Y, t, pl.cooldown <= 0);
+    if (showPlayer) drawWizard(g, pl.x, PLAYER_Y, t, pl.cooldown <= 0, game.hero);
 
     // Player spells: lightning bolts
     g.save();
@@ -843,12 +905,22 @@
     g.shadowColor = '#ffcc33';
     g.shadowBlur = 12;
     for (const b of game.playerBolts) {
-      const path = [[b.x + 1, b.y], [b.x + 4, b.y + 6], [b.x - 3, b.y + 9], [b.x + 2, b.y + BOLT_LEN]];
-      g.strokeStyle = '#ffd84a';
-      g.lineWidth = 3.5;
+      const k = b.len / BOLT_LEN;
+      const path = [[b.x + 1 * k, b.y], [b.x + 4 * k, b.y + 6 * k], [b.x - 3 * k, b.y + 9 * k], [b.x + 2 * k, b.y + b.len]];
+      if (b.big) {
+        g.shadowColor = '#ff2a2a';
+        g.shadowBlur = 22;
+        g.fillStyle = 'rgba(255,60,60,0.35)';
+        g.beginPath(); g.arc(b.x, b.y + 4, 13, 0, Math.PI * 2); g.fill();
+      } else {
+        g.shadowColor = '#ffcc33';
+        g.shadowBlur = 12;
+      }
+      g.strokeStyle = b.big ? '#ff3b3b' : '#ffd84a';
+      g.lineWidth = b.big ? 7 : 3.5;
       g.beginPath(); path.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.stroke();
       g.strokeStyle = '#ffffff';
-      g.lineWidth = 1.2;
+      g.lineWidth = b.big ? 2.5 : 1.2;
       g.stroke();
     }
     g.restore();
@@ -895,6 +967,26 @@
 
     renderHud(g);
 
+    if (game.stupefy > 0 && game.state === 'playing') {
+      const age = STUPEFY_BANNER_S - game.stupefy;
+      const pop = 1 + 0.5 * Math.max(0, 1 - age / 0.18);
+      g.save();
+      g.globalAlpha = Math.min(1, game.stupefy / 0.3);
+      g.translate(W / 2, H * 0.42);
+      g.scale(pop, pop);
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.font = 'bold 68px "Palatino Linotype", Palatino, Georgia, serif';
+      g.shadowColor = '#ff2a2a';
+      g.shadowBlur = 24;
+      g.lineWidth = 6;
+      g.strokeStyle = '#d4af37';
+      g.strokeText('STUPEFY!!!', 0, 0);
+      g.fillStyle = '#e8141c';
+      g.fillText('STUPEFY!!!', 0, 0);
+      g.restore();
+    }
+
     if (game.state === 'levelclear') {
       banner(g, 'Mischief Managed!', `Level ${game.level} cleared \u2014 brace yourself for level ${game.level + 1}`);
     } else if (game.state === 'playing' && game.banner > 0) {
@@ -940,6 +1032,17 @@
     g.fillText('LEVEL', W / 2 - 18, HUD_H / 2);
     g.fillStyle = '#f3d77a';
     g.fillText(String(game.level), W / 2 + 30, HUD_H / 2);
+    const toGo = STUPEFY_EVERY - (game.shots % STUPEFY_EVERY);
+    g.textAlign = 'left';
+    g.font = 'bold 14px "Palatino Linotype", Palatino, Georgia, serif';
+    if (toGo === 1) {
+      g.fillStyle = Math.floor(game.time * 4) % 2 ? '#ff3b3b' : '#f3d77a';
+      g.fillText('STUPEFY READY', 478, HUD_H / 2);
+    } else {
+      g.fillStyle = '#a99d84';
+      g.fillText(`STUPEFY IN ${toGo}`, 478, HUD_H / 2);
+    }
+    g.font = 'bold 17px "Palatino Linotype", Palatino, Georgia, serif';
     g.textAlign = 'right';
     g.fillStyle = '#a99d84';
     g.fillText('LIVES', W - 106, HUD_H / 2);
@@ -984,6 +1087,10 @@
     }
     if (e.code === 'KeyP' || e.code === 'Escape') setPaused(game.state !== 'paused');
     if (e.code === 'KeyM') toggleSound();
+    if (game.state === 'start' || game.state === 'gameover') {
+      if (e.code === 'Digit1') setHero('hermione');
+      if (e.code === 'Digit2') setHero('harry');
+    }
   });
   window.addEventListener('keyup', (e) => {
     const k = KEYMAP[e.code];
@@ -1007,6 +1114,25 @@
     btn.addEventListener('pointerleave', up);
   });
 
+  function paintHeroPreviews() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    document.querySelectorAll('canvas.hero-preview').forEach((cv) => {
+      const g = cv.getContext('2d');
+      cv.width = 64 * dpr;
+      cv.height = 72 * dpr;
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      g.clearRect(0, 0, 64, 72);
+      drawWizard(g, 28, 70, 0, true, cv.dataset.hero);
+    });
+  }
+  function setHero(key) {
+    if (!HEROES[key]) return;
+    game.hero = key;
+    save(HERO_KEY, key);
+    els.heroButtons.forEach((b) => b.setAttribute('aria-checked', String(b.dataset.hero === key)));
+    els.heroToggle.textContent = `Wizard: ${HEROES[key].name}`;
+  }
+
   function toggleSound() {
     audio.on = !audio.on;
     save(SOUND_KEY, audio.on ? 'on' : 'off');
@@ -1022,6 +1148,8 @@
   els.resumeBtn.addEventListener('click', () => setPaused(false));
   els.pauseToggle.addEventListener('click', () => setPaused(game.state !== 'paused'));
   els.soundToggle.addEventListener('click', toggleSound);
+  els.heroToggle.addEventListener('click', () => setHero(game.hero === 'hermione' ? 'harry' : 'hermione'));
+  els.heroButtons.forEach((b) => b.addEventListener('click', () => setHero(b.dataset.hero)));
   window.addEventListener('resize', resize);
 
   // ---------- Boot ----------
@@ -1040,6 +1168,8 @@
   updateBest();
   renderSoundToggle();
   paintLegend();
+  paintHeroPreviews();
+  setHero(game.hero);
   resize();
   requestAnimationFrame(loop);
 
