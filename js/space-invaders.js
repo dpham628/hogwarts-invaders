@@ -50,6 +50,11 @@
   const DRAGON_SCALE = 1.3;
   const DRAGON_LAND_Y = PLAYER_Y - 6 - 47 * DRAGON_SCALE;
   const DRAGON_BANNER_S = 2.2;
+  const SPIDER_EVERY = 30;
+  const SPIDER_COUNT = 3;
+  const SPIDER_R = 20;
+  const SPIDER_LAND_Y = PLAYER_Y - 18 - SPIDER_R;
+  const ROCK_SPEED = 400;
   const HEROES = {
     hermione: { name: 'Hermione', src: 'img/hermione.png?v=2' },
     harry: { name: 'Harry', src: 'img/harry.png?v=2' },
@@ -57,6 +62,8 @@
 
   const DRAGON_FACE = new Image();
   DRAGON_FACE.src = 'img/dragon-face.png?v=1';
+  const SPIDER_FACE = new Image();
+  SPIDER_FACE.src = 'img/spider-face.png?v=1';
 
   const $ = (sel) => document.querySelector(sel);
   const rand = (a, b) => a + Math.random() * (b - a);
@@ -148,17 +155,203 @@
     clash() { tone('triangle', 1400, 700, 0.1, 0.04); },
     hurt() { noise(0.6, 0.18); tone('sawtooth', 320, 40, 0.7, 0.07); },
     snitch() { [0, 0.07, 0.14, 0.21].forEach((d, i) => tone('triangle', 1200 + i * 300, 1700 + i * 300, 0.09, 0.05, d)); },
-    march(i) { const f = MARCH[i % 4]; tone('square', f, f * 0.92, 0.09, 0.04); },
+    march(i) { const f = MARCH[i % 4]; tone('square', f, f * 0.92, 0.09, 0.025); },
     roar() { noise(1.4, 0.22); tone('sawtooth', 130, 45, 1.4, 0.09); tone('square', 70, 38, 1.2, 0.05, 0.1); },
     dragonHit() { noise(0.25, 0.14); tone('sawtooth', 220, 90, 0.3, 0.07); },
     dragonArmor() { tone('square', 1500, 900, 0.05, 0.02); },
-    dragonDie() { noise(1.2, 0.24); tone('sawtooth', 200, 30, 1.3, 0.09); [784, 988, 1175].forEach((f, i) => tone('triangle', f, f, 0.25, 0.05, 0.5 + i * 0.12)); },
+    fart() {
+      const c = ac();
+      if (!c) return;
+      const t0 = c.currentTime;
+      const dur = 1.7;
+      const o = c.createOscillator();
+      const wobble = c.createOscillator();
+      const wobbleAmt = c.createGain();
+      const filter = c.createBiquadFilter();
+      const amp = c.createGain();
+      o.type = 'sawtooth';
+      o.frequency.setValueAtTime(95, t0);
+      o.frequency.linearRampToValueAtTime(70, t0 + dur * 0.6);
+      o.frequency.linearRampToValueAtTime(48, t0 + dur);
+      wobble.type = 'sine';
+      wobble.frequency.setValueAtTime(24, t0);
+      wobble.frequency.linearRampToValueAtTime(9, t0 + dur);
+      wobbleAmt.gain.value = 32;
+      wobble.connect(wobbleAmt).connect(o.frequency);
+      filter.type = 'lowpass';
+      filter.frequency.value = 700;
+      filter.Q.value = 6;
+      amp.gain.setValueAtTime(0.0001, t0);
+      amp.gain.linearRampToValueAtTime(0.32, t0 + 0.04);
+      amp.gain.setValueAtTime(0.3, t0 + dur * 0.7);
+      amp.gain.linearRampToValueAtTime(0.0001, t0 + dur);
+      o.connect(filter).connect(amp).connect(c.destination);
+      o.start(t0); wobble.start(t0);
+      o.stop(t0 + dur + 0.05); wobble.stop(t0 + dur + 0.05);
+      noise(1.3, 0.07);
+      tone('square', 170, 300, 0.16, 0.04, dur - 0.05);
+    },
+    spiders() { [0, 0.12, 0.24].forEach((d, i) => tone('sawtooth', 660 - i * 90, 300 - i * 60, 0.22, 0.03, d)); },
+    spiderDie() { noise(0.18, 0.1); tone('square', 900, 200, 0.16, 0.04); },
+    rockRain() { noise(0.9, 0.14); tone('sawtooth', 90, 60, 0.8, 0.05); },
+    rock() { noise(0.25, 0.14); tone('square', 140, 60, 0.18, 0.04); },
     stupefy() { noise(0.35, 0.12); tone('sawtooth', 180, 900, 0.3, 0.06); tone('square', 900, 300, 0.4, 0.04, 0.1); },
     clear() { [523, 659, 784, 1047].forEach((f, i) => tone('triangle', f, f, 0.24, 0.06, i * 0.13)); },
     over() { [392, 330, 262, 196].forEach((f, i) => tone('sawtooth', f, f * 0.97, 0.38, 0.045, i * 0.26)); },
   };
 
+  // ---------- Music: original upbeat waltz (synthesized) ----------
+  const midi = (m) => 440 * Math.pow(2, (m - 69) / 12);
+  const MELODY = [
+    [[71, 2], [76, 1], [79, 1], [78, 2]],
+    [[76, 3], [72, 1], [74, 1], [76, 1]],
+    [[72, 2], [69, 1], [72, 1], [76, 2]],
+    [[75, 4], [71, 2]],
+    [[71, 2], [76, 1], [79, 1], [83, 2]],
+    [[81, 2], [79, 1], [78, 1], [79, 2]],
+    [[76, 2], [72, 1], [75, 1], [78, 2]],
+    [[76, 4], [0, 2]],
+  ];
+  const CHORDS = { Em: [40, [55, 59, 64]], C: [36, [55, 60, 64]], Am: [45, [57, 60, 64]], B7: [35, [54, 59, 63]], G: [43, [55, 59, 62]] };
+  const PROGRESSION = ['Em', 'C', 'Am', 'B7', 'Em', 'G', 'Am', 'Em'];
+  const STEP_S = 60 / 168 / 2;
+  const music = { next: 0, step: 0, notes: null };
+  music.notes = (() => {
+    const out = [];
+    MELODY.forEach((bar) => bar.forEach(([n, len]) => {
+      out.push([n, len]);
+      for (let i = 1; i < len; i++) out.push(null);
+    }));
+    return out;
+  })();
+  music.tick = function () {
+    const active = ['playing', 'dying', 'levelclear'].includes(game.state);
+    if (!active || !audio.on) { music.next = 0; return; }
+    const c = ac();
+    if (!c) return;
+    if (music.next < c.currentTime) music.next = c.currentTime + 0.05;
+    while (music.next < c.currentTime + 0.15) {
+      const d = music.next - c.currentTime;
+      const i = music.step % music.notes.length;
+      const bar = Math.floor(i / 6);
+      const beatStep = i % 6;
+      const [root, triad] = CHORDS[PROGRESSION[bar]];
+      if (beatStep === 0) tone('triangle', midi(root), midi(root), 0.32, 0.055, d);
+      if (beatStep === 2 || beatStep === 4) triad.forEach((n) => tone('sine', midi(n), midi(n), 0.14, 0.012, d));
+      if (beatStep % 2 === 1) tone('square', 6000, 5000, 0.02, 0.004, d);
+      const note = music.notes[i];
+      if (note && note[0]) {
+        const f = midi(note[0]);
+        const len = note[1] * STEP_S;
+        tone('triangle', f, f, len * 1.2, 0.03, d);
+        tone('sine', f * 2, f * 2, len * 0.7, 0.012, d);
+      }
+      music.step++;
+      music.next += STEP_S;
+    }
+  };
+
   // ---------- Sprites (canvas-drawn) ----------
+  function drawBats(g, t) {
+    g.save();
+    g.fillStyle = '#07040c';
+    g.strokeStyle = 'rgba(170,150,210,0.45)';
+    g.lineWidth = 1;
+    for (const b of bats) {
+      const span = W + 120;
+      let x = ((b.phase + t * b.speed) % 1 + 1) % 1 * span - 60;
+      if (b.speed < 0) x = span - x - 120;
+      const y = b.y + Math.sin(t * 1.3 + b.phase) * b.amp;
+      const flap = Math.sin(t * 14 + b.phase * 3);
+      const k = b.size;
+      g.beginPath();
+      g.moveTo(x, y);
+      g.quadraticCurveTo(x - 7 * k, y - 10 * k * flap, x - 16 * k, y - 4 * k * flap);
+      g.quadraticCurveTo(x - 10 * k, y + 1 * k, x - 4 * k, y + 2 * k);
+      g.lineTo(x, y + 4 * k);
+      g.lineTo(x + 4 * k, y + 2 * k);
+      g.quadraticCurveTo(x + 10 * k, y + 1 * k, x + 16 * k, y - 4 * k * flap);
+      g.quadraticCurveTo(x + 7 * k, y - 10 * k * flap, x, y);
+      g.fill();
+      g.stroke();
+      g.beginPath(); g.arc(x, y + 1 * k, 2.6 * k, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#ff3b1a';
+      g.fillRect(x - 1.4 * k, y, 0.9 * k, 0.9 * k);
+      g.fillRect(x + 0.5 * k, y, 0.9 * k, 0.9 * k);
+      g.fillStyle = '#07040c';
+    }
+    g.restore();
+  }
+
+  function drawSpider(g, sp) {
+    const R = SPIDER_R;
+    const t = sp.t;
+    g.save();
+    g.strokeStyle = 'rgba(230,230,240,0.55)';
+    g.lineWidth = 1;
+    g.beginPath(); g.moveTo(sp.ax, HUD_H); g.quadraticCurveTo(sp.ax, (HUD_H + sp.y) / 2, sp.x, sp.y - R - 22); g.stroke();
+    g.translate(sp.x, sp.y);
+    g.strokeStyle = '#120d18';
+    g.lineWidth = 3;
+    g.lineCap = 'round';
+    for (const side of [-1, 1]) {
+      for (let i = 0; i < 4; i++) {
+        const wig = Math.sin(t * 6 + i * 1.3 + (side > 0 ? 1 : 0)) * 3;
+        const by = -R * 0.55 + i * 7;
+        g.beginPath();
+        g.moveTo(side * R * 0.6, by);
+        g.lineTo(side * (R + 14), by - 14 + i * 5 + wig);
+        g.lineTo(side * (R + 22), by + 6 + i * 6 - wig);
+        g.stroke();
+      }
+    }
+    g.fillStyle = '#17121e';
+    g.beginPath(); g.ellipse(0, -R - 8, 15, 12, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#c4141c';
+    g.beginPath(); g.moveTo(-4, -R - 14); g.lineTo(4, -R - 14); g.lineTo(-4, -R - 4); g.lineTo(4, -R - 4); g.closePath(); g.fill();
+    g.fillStyle = '#17121e';
+    g.beginPath();
+    for (let i = 0; i < 20; i++) {
+      const a = (i / 20) * Math.PI * 2;
+      const rr = i % 2 ? R + 2 : R + 6;
+      i ? g.lineTo(Math.cos(a) * rr, Math.sin(a) * rr) : g.moveTo(rr, 0);
+    }
+    g.closePath();
+    g.fill();
+    g.save();
+    g.beginPath(); g.arc(0, 0, R, 0, Math.PI * 2); g.clip();
+    if (SPIDER_FACE.complete && SPIDER_FACE.naturalWidth) g.drawImage(SPIDER_FACE, -R, -R, R * 2, R * 2);
+    else { g.fillStyle = '#c99a80'; g.fillRect(-R, -R, R * 2, R * 2); }
+    const vig = g.createRadialGradient(0, 0, R * 0.6, 0, 0, R);
+    vig.addColorStop(0, 'rgba(20,30,0,0)');
+    vig.addColorStop(1, 'rgba(10,20,0,0.55)');
+    g.fillStyle = vig;
+    g.fillRect(-R, -R, R * 2, R * 2);
+    g.restore();
+    g.fillStyle = '#ff2a1a';
+    for (const [ex, ey] of [[-6, -15], [-2, -17], [2, -17], [6, -15]]) { g.beginPath(); g.arc(ex, ey, 1.4, 0, Math.PI * 2); g.fill(); }
+    g.fillStyle = '#f4efe2';
+    for (const fx of [-4, 4]) { g.beginPath(); g.moveTo(fx - 2, R * 0.55); g.lineTo(fx, R * 0.55 + 9); g.lineTo(fx + 2, R * 0.55); g.closePath(); g.fill(); }
+    g.restore();
+  }
+
+  function drawRock(g, r) {
+    g.save();
+    g.translate(r.x, r.y);
+    g.rotate(r.rot);
+    g.fillStyle = r.target ? '#6e6255' : '#5a5048';
+    g.strokeStyle = '#2a2420';
+    g.lineWidth = 1.5;
+    g.beginPath();
+    r.shape.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
+    g.closePath();
+    g.fill();
+    g.stroke();
+    g.fillStyle = 'rgba(255,240,220,0.18)';
+    g.beginPath(); g.arc(-r.size * 0.3, -r.size * 0.3, r.size * 0.3, 0, Math.PI * 2); g.fill();
+    g.restore();
+  }
+
   function drawDragonWing(g, flap, fill, edge) {
     const sy = -14;
     const tips = [[-18, sy - 100 * flap], [-70, sy - 82 * flap], [-112, sy - 46 * flap], [-128, sy - 6 * flap + 4]];
@@ -611,6 +804,14 @@
     speed: rand(0.6, 2.4),
   }));
 
+  const bats = Array.from({ length: 6 }, (_, i) => ({
+    phase: Math.random() * 100,
+    speed: rand(0.035, 0.07) * (i % 2 ? 1 : -1),
+    y: HUD_H + 40 + Math.random() * (H - 330),
+    amp: rand(10, 40),
+    size: rand(1.3, 2.1),
+  }));
+
   // ---------- Game state ----------
   const game = {
     state: 'start',
@@ -627,6 +828,8 @@
     stupefy: 0,
     dragon: null,
     dragonBanner: 0,
+    spiders: [],
+    rocks: [],
     player: { x: W / 2, cooldown: 0, invuln: 0 },
     playerBolts: [],
     enemyBolts: [],
@@ -700,6 +903,8 @@
     game.snitchTimer = rand(10, 18);
     game.dragon = null;
     game.dragonBanner = 0;
+    game.spiders = [];
+    game.rocks = [];
     game.fireTimer = 1.5;
     game.beatTimer = 0;
     game.player.x = W / 2;
@@ -747,8 +952,11 @@
     updateBest();
     const invaded = game.endReason === 'invasion';
     const burned = game.endReason === 'dragon';
-    els.gameoverTitle.textContent = burned ? 'Hogwarts Burns' : invaded ? 'Hogwarts Has Fallen' : 'The Dementors Prevail';
-    els.gameoverText.textContent = burned
+    const webbed = game.endReason === 'spider';
+    els.gameoverTitle.textContent = webbed ? 'Caught in the Web' : burned ? 'Hogwarts Burns' : invaded ? 'Hogwarts Has Fallen' : 'The Dementors Prevail';
+    els.gameoverText.textContent = webbed
+      ? 'A spider reached the castle and wrapped you up.'
+      : burned
       ? 'The dragon reached the ground and set the castle ablaze.'
       : invaded
         ? 'The Dark forces reached the castle walls.'
@@ -889,6 +1097,7 @@
         sfx.cast();
       }
       if (game.shots % DRAGON_EVERY === 0 && !game.dragon) spawnDragon();
+      if (game.shots % SPIDER_EVERY === 0) spawnSpiders();
     }
 
     // Formation
@@ -947,6 +1156,7 @@
         burst(game.snitch.x, game.snitch.y, ['#ffd84a', '#fff3b0', '#e9b52a'], 26, 200);
         game.snitch = null;
         sfx.snitch();
+        rockRain();
         return false;
       }
       for (const e of game.enemies) {
@@ -967,6 +1177,7 @@
           return false;
         }
       }
+      if (hitSpider(rect)) return false;
       if (game.dragon && hitDragon(game.dragon, rect, b)) return false;
       return true;
     });
@@ -1040,14 +1251,17 @@
     }
 
     if (game.dragon) updateDragon(game.dragon, dt);
+    updateSpiders(dt);
+    updateRocks(dt);
     game.dragonBanner = Math.max(0, game.dragonBanner - dt);
 
-    if (game.state === 'playing' && game.alive === 0 && !game.dragon) {
+    if (game.state === 'playing' && game.alive === 0 && !game.dragon && !game.spiders.length) {
       game.state = 'levelclear';
       game.timer = LEVEL_CLEAR_S;
       game.enemyBolts = [];
       game.playerBolts = [];
       game.snitch = null;
+      game.rocks = [];
       sfx.clear();
     }
   }
@@ -1098,7 +1312,8 @@
     floatText(d.x, d.y - 40, `+${pts} Dragon slain!`);
     game.dragon = null;
     game.dragonBanner = 0;
-    sfx.dragonDie();
+    sfx.fart();
+    floatText(d.x, d.y + 14, 'PFFFRRRT!', '#9be37a');
   }
 
   function updateDragon(d, dt) {
@@ -1122,6 +1337,119 @@
       floatText(W / 2, H / 2, 'The dragon landed!', '#ff5a36');
       playerHit();
     }
+  }
+
+  function spawnSpiders() {
+    const xs = [];
+    for (let tries = 0; xs.length < SPIDER_COUNT && tries < 200; tries++) {
+      const x = rand(60, W - 60);
+      if (xs.every((o) => Math.abs(o - x) > 120)) xs.push(x);
+    }
+    const lvl = 1 + 0.08 * (game.level - 1);
+    for (const x of xs) {
+      game.spiders.push({ x, ax: x, y: HUD_H + rand(10, 60), vy: rand(24, 36) * lvl, t: Math.random() * 10 });
+    }
+    floatText(W / 2, H * 0.55, 'Spiders!', '#c9ff7a');
+    sfx.spiders();
+  }
+
+  function spiderRect(sp) {
+    return { x: sp.x - SPIDER_R, y: sp.y - SPIDER_R - 18, w: SPIDER_R * 2, h: SPIDER_R * 2 + 18 };
+  }
+
+  function hitSpider(rect) {
+    for (let i = 0; i < game.spiders.length; i++) {
+      const sp = game.spiders[i];
+      if (!overlap(rect, spiderRect(sp))) continue;
+      const pts = 75 + 25 * (game.level - 1);
+      game.score += pts;
+      burst(sp.x, sp.y, ['#c9ff7a', '#2a2233', '#ffffff'], 24, 200);
+      floatText(sp.x, sp.y - 30, `+${pts}`);
+      game.spiders.splice(i, 1);
+      sfx.spiderDie();
+      return true;
+    }
+    return false;
+  }
+
+  function updateSpiders(dt) {
+    for (const sp of game.spiders) {
+      sp.t += dt;
+      sp.y += sp.vy * dt;
+      sp.x = sp.ax + Math.sin(sp.t * 1.6) * 10;
+      const r = spiderRect(sp);
+      if (r.y + r.h >= SHIELD_Y) erodeShields(r);
+    }
+    const landed = game.spiders.find((sp) => sp.y >= SPIDER_LAND_Y);
+    if (landed && game.state === 'playing') {
+      game.spiders = game.spiders.filter((sp) => sp !== landed);
+      burst(landed.x, PLAYER_Y - 10, ['#c9ff7a', '#ffffff', '#2a2233'], 40, 220);
+      if (game.lives <= 1) game.endReason = 'spider';
+      floatText(W / 2, H / 2, 'A spider got through!', '#c9ff7a');
+      playerHit();
+    }
+  }
+
+  function jaggedShape(size) {
+    const n = 7 + ((Math.random() * 3) | 0);
+    return Array.from({ length: n }, (_, i) => {
+      const a = (i / n) * Math.PI * 2;
+      const rr = size * (i % 2 ? rand(0.45, 0.7) : rand(0.85, 1.15));
+      return [Math.cos(a) * rr, Math.sin(a) * rr];
+    });
+  }
+
+  function rockRain() {
+    const alive = game.enemies.filter((e) => e.alive);
+    const targets = [];
+    const want = Math.min(alive.length, Math.random() < 0.5 ? 1 : 2);
+    while (targets.length < want) {
+      const e = alive[(Math.random() * alive.length) | 0];
+      if (!targets.includes(e)) targets.push(e);
+    }
+    const make = (x, target) => {
+      const size = target ? rand(15, 19) : rand(8, 14);
+      return { x, y: HUD_H - rand(10, 120), vx: rand(-30, 30), vy: ROCK_SPEED * rand(0.7, 1), rot: Math.random() * 6, vr: rand(-6, 6), size, shape: jaggedShape(size), target };
+    };
+    for (const e of targets) {
+      const er = enemyRect(e);
+      game.rocks.push(make(er.x + ENEMY_W / 2 + rand(-40, 40), e));
+    }
+    for (let i = 0; i < 9; i++) game.rocks.push(make(rand(20, W - 20), null));
+    floatText(W / 2, HUD_H + 70, 'Rock rain!', '#d9cbb5');
+    sfx.rockRain();
+  }
+
+  function updateRocks(dt) {
+    game.rocks = game.rocks.filter((r) => {
+      r.rot += r.vr * dt;
+      if (r.target && r.target.alive) {
+        const er = enemyRect(r.target);
+        const tx = er.x + ENEMY_W / 2;
+        const ty = er.y + ENEMY_H / 2;
+        const dx = tx - r.x;
+        const dy = ty - r.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist < 16) {
+          killEnemy(r.target);
+          burst(r.x, r.y, ['#8a7d6e', '#d9cbb5', '#4a4038'], 20, 180);
+          sfx.rock();
+          return false;
+        }
+        r.vx = (dx / dist) * ROCK_SPEED;
+        r.vy = (dy / dist) * ROCK_SPEED;
+      } else {
+        r.target = null;
+        r.vy = Math.max(r.vy, ROCK_SPEED * 0.7);
+      }
+      r.x += r.vx * dt;
+      r.y += r.vy * dt;
+      if (!r.target && r.y > SHIELD_Y - 30) {
+        burst(r.x, r.y, ['#8a7d6e', '#4a4038'], 6, 80);
+        return false;
+      }
+      return true;
+    });
   }
 
   function killEnemy(e) {
@@ -1160,6 +1488,8 @@
     }
     g.globalAlpha = 1;
 
+    drawBats(g, t);
+
     // Shields
     const shimmer = 0.75 + 0.2 * Math.sin(t * 3);
     g.save();
@@ -1184,6 +1514,8 @@
     }
 
     if (game.snitch) drawSnitch(g, game.snitch.x, game.snitch.y, t);
+    for (const sp of game.spiders) drawSpider(g, sp);
+    for (const r of game.rocks) drawRock(g, r);
 
     const pl = game.player;
     const showPlayer = game.state !== 'dying' && game.state !== 'gameover' && !(pl.invuln > 0 && Math.floor(t * 12) % 2);
@@ -1476,6 +1808,7 @@
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
     if (game.state !== 'paused') update(dt);
+    music.tick();
     render();
     requestAnimationFrame(loop);
   }
@@ -1491,5 +1824,5 @@
   resize();
   requestAnimationFrame(loop);
 
-  window.HogwartsInvaders = { game, keys, newGame, startLevel };
+  window.HogwartsInvaders = { game, keys, music, newGame, startLevel, spawnDragon, killDragon, spawnSpiders, rockRain };
 })();
