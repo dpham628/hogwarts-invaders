@@ -7,7 +7,7 @@ Open `index.html` in a browser (or serve the folder, e.g. `python3 -m http.serve
 ## How to play
 - **Move:** Left/Right arrows or A/D
 - **Cast a spell:** Space (short cooldown between shots). Every 10th spell is a bigger red **Stupefy** that also stuns enemies next to the one it hits.
-- **Dragon:** every 20th spell summons a huge dark dragon that flies back and forth and slowly sinks toward the castle. Its body shrugs off spells; hit its head 3 times (or once with Stupefy) before it lands, or you lose a life.
+- **Dragon:** every 20th spell summons a huge dark dragon (with a fanged, red-eyed face on its head) that flies back and forth and slowly sinks toward the castle. Its body shrugs off spells; hit its head 3 times (or once with Stupefy) before it lands, or you lose a life.
 - **Pick your wizard:** Hermione or Harry on the start screen (keys 1 / 2), or with the Wizard button in the header
 - **Pause:** P or Esc · **Sound:** M
 - Touch devices get on-screen Left / Cast / Right buttons.

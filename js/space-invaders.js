@@ -46,7 +46,7 @@
   const DRAGON_DESCENT = 18;
   const DRAGON_HEAD_X = 104;
   const DRAGON_HEAD_Y = -22;
-  const DRAGON_HEAD_R = 17;
+  const DRAGON_HEAD_R = 27;
   const DRAGON_SCALE = 1.3;
   const DRAGON_LAND_Y = PLAYER_Y - 6 - 47 * DRAGON_SCALE;
   const DRAGON_BANNER_S = 2.2;
@@ -54,6 +54,9 @@
     hermione: { name: 'Hermione', src: 'img/hermione.png?v=2' },
     harry: { name: 'Harry', src: 'img/harry.png?v=2' },
   };
+
+  const DRAGON_FACE = new Image();
+  DRAGON_FACE.src = 'img/dragon-face.png?v=1';
 
   const $ = (sel) => document.querySelector(sel);
   const rand = (a, b) => a + Math.random() * (b - a);
@@ -262,55 +265,80 @@
     g.quadraticCurveTo(80, -6, DRAGON_HEAD_X - 12, DRAGON_HEAD_Y + 2);
     g.stroke();
 
-    // Head
+    // Head: her face, framed by horns, a spiked frill and fangs
     const hx = DRAGON_HEAD_X;
     const hy = DRAGON_HEAD_Y;
-    if (d.flash > 0) { g.shadowColor = '#ffffff'; g.shadowBlur = 24; }
-    g.fillStyle = d.flash > 0 ? '#6b4a52' : '#1d1724';
-    g.beginPath();
-    g.moveTo(hx - 16, hy - 12);
-    g.lineTo(hx + 6, hy - 14);
-    g.lineTo(hx + 30, hy - 4);
-    g.lineTo(hx + 32, hy + 2);
-    g.lineTo(hx + 8, hy + 6);
-    g.lineTo(hx + 26, hy + 12);
-    g.lineTo(hx + 4, hy + 15);
-    g.lineTo(hx - 16, hy + 10);
-    g.closePath();
-    g.fill();
-    g.shadowBlur = 0;
-    // Mouth fire glow
-    g.fillStyle = `rgba(255,${90 + Math.floor(60 * Math.abs(Math.sin(t * 6)))},20,0.9)`;
-    g.beginPath();
-    g.moveTo(hx + 8, hy + 6);
-    g.lineTo(hx + 30, hy + 4);
-    g.lineTo(hx + 24, hy + 10);
-    g.closePath();
-    g.fill();
-    // Teeth
-    g.fillStyle = '#e8e1d0';
-    for (let i = 0; i < 4; i++) {
-      const fx = hx + 12 + i * 5;
-      g.beginPath(); g.moveTo(fx, hy + 5); g.lineTo(fx + 2, hy + 9); g.lineTo(fx + 4, hy + 5); g.fill();
-    }
-    // Horns
+    const R = DRAGON_HEAD_R;
     g.fillStyle = '#4a3f52';
-    g.beginPath(); g.moveTo(hx - 12, hy - 10); g.lineTo(hx - 30, hy - 30); g.lineTo(hx - 4, hy - 13); g.fill();
-    g.beginPath(); g.moveTo(hx - 4, hy - 13); g.lineTo(hx - 14, hy - 34); g.lineTo(hx + 4, hy - 14); g.fill();
-    // Eye
+    g.beginPath(); g.moveTo(hx - 14, hy - 14); g.quadraticCurveTo(hx - 40, hy - 34, hx - 30, hy - 58); g.quadraticCurveTo(hx - 26, hy - 34, hx - 4, hy - 20); g.fill();
+    g.beginPath(); g.moveTo(hx + 4, hy - 20); g.quadraticCurveTo(hx + 4, hy - 46, hx + 22, hy - 60); g.quadraticCurveTo(hx + 14, hy - 38, hx + 16, hy - 14); g.fill();
+    g.fillStyle = '#17121e';
+    g.beginPath();
+    for (let i = 0; i < 18; i++) {
+      const a = (i / 18) * Math.PI * 2;
+      const rr = i % 2 ? R + 4 : R + 11;
+      i ? g.lineTo(hx + Math.cos(a) * rr, hy + Math.sin(a) * rr) : g.moveTo(hx + rr, hy);
+    }
+    g.closePath();
+    g.fill();
+    if (d.flash > 0) { g.shadowColor = '#ffffff'; g.shadowBlur = 24; }
+    g.save();
+    g.beginPath(); g.arc(hx, hy, R, 0, Math.PI * 2); g.clip();
+    if (DRAGON_FACE.complete && DRAGON_FACE.naturalWidth) g.drawImage(DRAGON_FACE, hx - R, hy - R, R * 2, R * 2);
+    else { g.fillStyle = '#c99a80'; g.fillRect(hx - R, hy - R, R * 2, R * 2); }
+    g.globalCompositeOperation = 'multiply';
+    g.fillStyle = '#e09088';
+    g.fillRect(hx - R, hy - R, R * 2, R * 2);
+    g.globalCompositeOperation = 'source-over';
+    const vig = g.createRadialGradient(hx, hy, R * 0.6, hx, hy, R);
+    vig.addColorStop(0, 'rgba(20,0,10,0)');
+    vig.addColorStop(1, 'rgba(20,0,10,0.55)');
+    g.fillStyle = vig;
+    g.fillRect(hx - R, hy - R, R * 2, R * 2);
+    if (d.flash > 0) { g.fillStyle = 'rgba(255,255,255,0.45)'; g.fillRect(hx - R, hy - R, R * 2, R * 2); }
+    g.restore();
+    g.shadowBlur = 0;
+    g.strokeStyle = '#2a2233';
+    g.lineWidth = 2;
+    g.beginPath(); g.arc(hx, hy, R, 0, Math.PI * 2); g.stroke();
+    // Angry brows
+    g.strokeStyle = '#120a0e';
+    g.lineWidth = 2.4;
+    g.lineCap = 'round';
+    g.beginPath(); g.moveTo(hx - R * 0.55, hy - R * 0.62); g.lineTo(hx - R * 0.12, hy - R * 0.42); g.stroke();
+    g.beginPath(); g.moveTo(hx + R * 0.58, hy - R * 0.62); g.lineTo(hx + R * 0.15, hy - R * 0.42); g.stroke();
+    // Glowing eyes
     g.save();
     g.shadowColor = '#ff1a00';
-    g.shadowBlur = 14;
-    g.fillStyle = '#ff3b1a';
-    g.beginPath(); g.ellipse(hx + 2, hy - 5, 4.5, 2.6, -0.2, 0, Math.PI * 2); g.fill();
-    g.fillStyle = '#ffe14a';
-    g.fillRect(hx + 1.5, hy - 7, 1.2, 4);
+    g.shadowBlur = 10;
+    const glow = 0.75 + 0.25 * Math.sin(t * 8);
+    for (const ex of [-0.29, 0.31]) {
+      g.fillStyle = `rgba(255,40,20,${glow})`;
+      g.beginPath(); g.ellipse(hx + ex * R, hy - 0.37 * R, R * 0.17, R * 0.09, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#ffe14a';
+      g.fillRect(hx + ex * R - 0.5, hy - 0.37 * R - R * 0.08, 1, R * 0.16);
+    }
     g.restore();
-    // Smoke from nostrils
+    // Fangs
+    g.fillStyle = '#f4efe2';
+    g.strokeStyle = '#5a1010';
+    g.lineWidth = 0.8;
+    for (const fx of [-0.16, 0.16]) {
+      g.beginPath();
+      g.moveTo(hx + (fx - 0.07) * R, hy + 0.33 * R);
+      g.lineTo(hx + fx * 1.15 * R, hy + 0.95 * R);
+      g.lineTo(hx + (fx + 0.07) * R, hy + 0.33 * R);
+      g.closePath();
+      g.fill();
+      g.stroke();
+    }
+    g.fillStyle = 'rgba(160,10,10,0.85)';
+    g.beginPath(); g.moveTo(hx + 0.13 * R, hy + 0.9 * R); g.quadraticCurveTo(hx + 0.2 * R, hy + 1.05 * R, hx + 0.17 * R, hy + 1.15 * R); g.lineTo(hx + 0.21 * R, hy + 0.9 * R); g.fill();
+    // Smoke
     g.fillStyle = 'rgba(160,150,170,0.25)';
     for (let i = 0; i < 3; i++) {
       const k = (t * 0.8 + i / 3) % 1;
-      g.beginPath(); g.arc(hx + 32 + k * 18, hy - 2 - k * 22, 3 + k * 7, 0, Math.PI * 2); g.fill();
+      g.beginPath(); g.arc(hx + R + 6 + k * 18, hy - k * 22, 3 + k * 7, 0, Math.PI * 2); g.fill();
     }
 
     // Near wing (in front of body)
