@@ -38,7 +38,7 @@
   const HERO_KEY = 'hogwarts-invaders-hero';
   const STUPEFY_EVERY = 10;
   const BIG_BOLT_LEN = 30;
-  const BLAST_R = 44;
+  const BLAST_R = 50;
   const STUPEFY_BANNER_S = 1.1;
   const DRAGON_EVERY = 20;
   const DRAGON_HEAD_HP = 3;
@@ -1351,9 +1351,11 @@
     if (d.y >= DRAGON_LAND_Y && game.state === 'playing') {
       burst(d.x, PLAYER_Y - 10, ['#ff5a36', '#ffd84a', '#ae0001', '#2a2233'], 80, 300);
       game.dragon = null;
-      if (game.lives <= 1) game.endReason = 'dragon';
       floatText(W / 2, H / 2, 'The dragon landed!', '#ff5a36');
-      playerHit();
+      if (game.player.invuln <= 0) {
+        if (game.lives <= 1) game.endReason = 'dragon';
+        playerHit();
+      }
     }
   }
 
@@ -1398,12 +1400,14 @@
       const r = spiderRect(sp);
       if (r.y + r.h >= SHIELD_Y) erodeShields(r);
     }
-    const landed = game.spiders.find((sp) => sp.y >= SPIDER_LAND_Y);
-    if (landed && game.state === 'playing') {
-      game.spiders = game.spiders.filter((sp) => sp !== landed);
-      burst(landed.x, PLAYER_Y - 10, ['#c9ff7a', '#ffffff', '#2a2233'], 40, 220);
+    if (game.state !== 'playing') return;
+    const landed = game.spiders.filter((sp) => sp.y >= SPIDER_LAND_Y);
+    if (!landed.length) return;
+    game.spiders = game.spiders.filter((sp) => sp.y < SPIDER_LAND_Y);
+    for (const sp of landed) burst(sp.x, PLAYER_Y - 10, ['#c9ff7a', '#ffffff', '#2a2233'], 40, 220);
+    floatText(W / 2, H / 2, 'A spider got through!', '#c9ff7a');
+    if (game.player.invuln <= 0) {
       if (game.lives <= 1) game.endReason = 'spider';
-      floatText(W / 2, H / 2, 'A spider got through!', '#c9ff7a');
       playerHit();
     }
   }
@@ -1747,7 +1751,10 @@
   // ---------- Input ----------
   const KEYMAP = { ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', Space: 'fire' };
   window.addEventListener('keydown', (e) => {
-    if (e.target && e.target.tagName === 'BUTTON' && (e.code === 'Space' || e.code === 'Enter')) e.preventDefault();
+    const onButton = e.target && e.target.tagName === 'BUTTON' && (e.code === 'Space' || e.code === 'Enter');
+    const menu = game.state === 'start' || game.state === 'gameover';
+    if (onButton && menu) return;
+    if (onButton) e.preventDefault();
     const k = KEYMAP[e.code];
     if (k) {
       keys[k] = true;
@@ -1841,6 +1848,10 @@
 
   function setDifficulty(key) {
     if (!DIFFICULTY[key]) return;
+    const prev = DIFFICULTY[game.difficulty];
+    if (prev && key !== game.difficulty && game.state !== 'start' && game.state !== 'gameover') {
+      game.lives = Math.max(1, game.lives + DIFFICULTY[key].lives - prev.lives);
+    }
     game.difficulty = key;
     save(DIFF_KEY, key);
     els.modeButtons.forEach((b) => b.setAttribute('aria-checked', String(b.dataset.mode === key)));
