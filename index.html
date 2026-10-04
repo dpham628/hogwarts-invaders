@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hogwarts Invaders</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Cpath d=%22M18 2 6 18h8l-2 12 12-16h-8z%22 fill=%22%23d4af37%22/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="style.css?v=1" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>Hogwarts <span>Invaders</span></h1>
+    <div class="topbar-controls">
+      <div class="record" title="Best score (saved in this browser)">Best <b id="best">0</b></div>
+      <button id="sound-toggle" class="btn ghost" aria-pressed="true">Sound: on</button>
+      <button id="pause-toggle" class="btn ghost" disabled>Pause</button>
+    </div>
+  </header>
+
+  <main class="stage" id="stage">
+    <canvas id="game" width="800" height="640" aria-label="Hogwarts Invaders game"></canvas>
+
+    <section id="start-screen" class="overlay">
+      <div class="scroll">
+        <h2 class="title">Hogwarts <span>Invaders</span></h2>
+        <p class="tagline">Dementors and Death Eaters are descending on the castle. Hold the line, young wizard.</p>
+        <ul class="legend">
+          <li><canvas class="sprite" data-sprite="captain" width="48" height="40"></canvas><span>Death Eater captain</span><b>40</b></li>
+          <li><canvas class="sprite" data-sprite="eater" width="48" height="40"></canvas><span>Death Eater</span><b>20</b></li>
+          <li><canvas class="sprite" data-sprite="dementor" width="48" height="40"></canvas><span>Dementor</span><b>10</b></li>
+          <li><canvas class="sprite" data-sprite="snitch" width="48" height="40"></canvas><span>Golden Snitch (rare)</span><b>150+</b></li>
+        </ul>
+        <div class="controls">
+          <p><kbd>&larr;</kbd> <kbd>&rarr;</kbd> or <kbd>A</kbd> <kbd>D</kbd> move</p>
+          <p><kbd>Space</kbd> cast a spell</p>
+          <p><kbd>P</kbd> pause &middot; <kbd>M</kbd> sound</p>
+        </div>
+        <p class="hint">Hide behind the Protego shields &mdash; but every spell chips them away. Clear the sky to advance to a harder level. You have 3 lives.</p>
+        <button id="start" class="btn primary">Begin <small>(Enter)</small></button>
+      </div>
+    </section>
+
+    <section id="pause-screen" class="overlay hidden">
+      <div class="scroll compact">
+        <h2 class="title small">Paused</h2>
+        <p class="hint">Press <kbd>P</kbd> or the button to resume.</p>
+        <button id="resume" class="btn primary">Resume</button>
+      </div>
+    </section>
+
+    <section id="gameover-screen" class="overlay hidden">
+      <div class="scroll">
+        <h2 class="title small" id="gameover-title">Game Over</h2>
+        <p class="tagline" id="gameover-text"></p>
+        <p class="final">Score <b id="final-score">0</b> &middot; Level <b id="final-level">1</b></p>
+        <p class="new-best hidden" id="new-best">New best score!</p>
+        <button id="restart" class="btn primary">Play again <small>(Enter)</small></button>
+      </div>
+    </section>
+  </main>
+
+  <div class="touch-controls" aria-hidden="true">
+    <button class="btn touch" data-key="left">&#9664;</button>
+    <button class="btn touch fire" data-key="fire">&#9889; Cast</button>
+    <button class="btn touch" data-key="right">&#9654;</button>
+  </div>
+
+  <script src="js/space-invaders.js?v=1"></script>
+</body>
+</html>
