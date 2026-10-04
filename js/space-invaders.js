@@ -40,6 +40,16 @@
   const BIG_BOLT_LEN = 30;
   const BLAST_R = 44;
   const STUPEFY_BANNER_S = 1.1;
+  const DRAGON_EVERY = 20;
+  const DRAGON_HEAD_HP = 3;
+  const DRAGON_SPEED = 85;
+  const DRAGON_DESCENT = 18;
+  const DRAGON_HEAD_X = 104;
+  const DRAGON_HEAD_Y = -22;
+  const DRAGON_HEAD_R = 17;
+  const DRAGON_SCALE = 1.3;
+  const DRAGON_LAND_Y = PLAYER_Y - 6 - 47 * DRAGON_SCALE;
+  const DRAGON_BANNER_S = 2.2;
   const HEROES = {
     hermione: { name: 'Hermione', src: 'img/hermione.png?v=2' },
     harry: { name: 'Harry', src: 'img/harry.png?v=2' },
@@ -136,12 +146,178 @@
     hurt() { noise(0.6, 0.18); tone('sawtooth', 320, 40, 0.7, 0.07); },
     snitch() { [0, 0.07, 0.14, 0.21].forEach((d, i) => tone('triangle', 1200 + i * 300, 1700 + i * 300, 0.09, 0.05, d)); },
     march(i) { const f = MARCH[i % 4]; tone('square', f, f * 0.92, 0.09, 0.04); },
+    roar() { noise(1.4, 0.22); tone('sawtooth', 130, 45, 1.4, 0.09); tone('square', 70, 38, 1.2, 0.05, 0.1); },
+    dragonHit() { noise(0.25, 0.14); tone('sawtooth', 220, 90, 0.3, 0.07); },
+    dragonArmor() { tone('square', 1500, 900, 0.05, 0.02); },
+    dragonDie() { noise(1.2, 0.24); tone('sawtooth', 200, 30, 1.3, 0.09); [784, 988, 1175].forEach((f, i) => tone('triangle', f, f, 0.25, 0.05, 0.5 + i * 0.12)); },
     stupefy() { noise(0.35, 0.12); tone('sawtooth', 180, 900, 0.3, 0.06); tone('square', 900, 300, 0.4, 0.04, 0.1); },
     clear() { [523, 659, 784, 1047].forEach((f, i) => tone('triangle', f, f, 0.24, 0.06, i * 0.13)); },
     over() { [392, 330, 262, 196].forEach((f, i) => tone('sawtooth', f, f * 0.97, 0.38, 0.045, i * 0.26)); },
   };
 
   // ---------- Sprites (canvas-drawn) ----------
+  function drawDragonWing(g, flap, fill, edge) {
+    const sy = -14;
+    const tips = [[-18, sy - 100 * flap], [-70, sy - 82 * flap], [-112, sy - 46 * flap], [-128, sy - 6 * flap + 4]];
+    g.fillStyle = fill;
+    g.strokeStyle = edge;
+    g.lineWidth = 2;
+    g.beginPath();
+    g.moveTo(22, sy);
+    g.lineTo(tips[0][0], tips[0][1]);
+    let prev = tips[0];
+    for (let i = 1; i < tips.length; i++) {
+      const tp = tips[i];
+      g.quadraticCurveTo((prev[0] + tp[0]) / 2 + 6, (prev[1] + tp[1]) / 2 + 16 * Math.sign(flap || 1), tp[0], tp[1]);
+      prev = tp;
+    }
+    g.quadraticCurveTo(-90, 4, -40, 0);
+    g.closePath();
+    g.fill();
+    g.stroke();
+    g.strokeStyle = '#3b3046';
+    g.lineWidth = 2.5;
+    for (const tp of tips) { g.beginPath(); g.moveTo(14, sy); g.lineTo(tp[0], tp[1]); g.stroke(); }
+  }
+
+  function drawDragon(g, d) {
+    const t = d.t;
+    const beat = Math.sin(t * 3.4);
+    g.save();
+    g.translate(d.x, d.y + Math.sin(t * 3.4 + 1) * 4);
+    g.scale(d.dir * DRAGON_SCALE, DRAGON_SCALE);
+
+    g.save();
+    g.shadowColor = '#ff2a00';
+    g.shadowBlur = 30;
+    drawDragonWing(g, 0.35 + 0.65 * beat * -1, '#0d0a12', '#2a2233');
+    g.restore();
+
+    // Tail
+    g.strokeStyle = '#120e18';
+    g.lineWidth = 14;
+    g.lineCap = 'round';
+    g.beginPath();
+    g.moveTo(-40, 4);
+    g.quadraticCurveTo(-95, 30 + Math.sin(t * 2) * 10, -150, 8 + Math.sin(t * 2 + 1) * 14);
+    g.stroke();
+    g.lineWidth = 6;
+    g.beginPath();
+    const tx = -150;
+    const ty = 8 + Math.sin(t * 2 + 1) * 14;
+    g.moveTo(tx, ty);
+    g.lineTo(tx - 14, ty - 8);
+    g.lineTo(tx - 6, ty + 2);
+    g.lineTo(tx - 16, ty + 10);
+    g.closePath();
+    g.fillStyle = '#120e18';
+    g.fill();
+    g.stroke();
+
+    // Legs and claws
+    g.lineWidth = 7;
+    for (const lx of [-22, 22]) {
+      g.beginPath();
+      g.moveTo(lx, 12);
+      g.lineTo(lx + 6, 30);
+      g.lineTo(lx + 2, 40);
+      g.stroke();
+      g.strokeStyle = '#c9c0b0';
+      g.lineWidth = 2;
+      for (const c of [-5, 0, 5]) { g.beginPath(); g.moveTo(lx + 2, 40); g.lineTo(lx + 2 + c + 3, 47); g.stroke(); }
+      g.strokeStyle = '#120e18';
+      g.lineWidth = 7;
+    }
+
+    // Body
+    const body = g.createLinearGradient(0, -24, 0, 24);
+    body.addColorStop(0, '#2a2233');
+    body.addColorStop(0.6, '#140f1a');
+    body.addColorStop(1, '#3a1d18');
+    g.fillStyle = body;
+    g.beginPath();
+    g.ellipse(0, 2, 60, 24, 0, 0, Math.PI * 2);
+    g.fill();
+    // Spines
+    g.fillStyle = '#3d3248';
+    for (let i = 0; i < 6; i++) {
+      const sx = -44 + i * 16;
+      g.beginPath();
+      g.moveTo(sx - 5, -18 + Math.abs(i - 2.5) * 1.5);
+      g.lineTo(sx, -32 + Math.abs(i - 2.5) * 2);
+      g.lineTo(sx + 5, -18 + Math.abs(i - 2.5) * 1.5);
+      g.fill();
+    }
+    // Belly glow
+    g.fillStyle = 'rgba(255,90,30,0.18)';
+    g.beginPath();
+    g.ellipse(6, 14, 38, 8, 0, 0, Math.PI * 2);
+    g.fill();
+
+    // Neck
+    g.strokeStyle = '#17121e';
+    g.lineWidth = 20;
+    g.beginPath();
+    g.moveTo(42, -2);
+    g.quadraticCurveTo(80, -6, DRAGON_HEAD_X - 12, DRAGON_HEAD_Y + 2);
+    g.stroke();
+
+    // Head
+    const hx = DRAGON_HEAD_X;
+    const hy = DRAGON_HEAD_Y;
+    if (d.flash > 0) { g.shadowColor = '#ffffff'; g.shadowBlur = 24; }
+    g.fillStyle = d.flash > 0 ? '#6b4a52' : '#1d1724';
+    g.beginPath();
+    g.moveTo(hx - 16, hy - 12);
+    g.lineTo(hx + 6, hy - 14);
+    g.lineTo(hx + 30, hy - 4);
+    g.lineTo(hx + 32, hy + 2);
+    g.lineTo(hx + 8, hy + 6);
+    g.lineTo(hx + 26, hy + 12);
+    g.lineTo(hx + 4, hy + 15);
+    g.lineTo(hx - 16, hy + 10);
+    g.closePath();
+    g.fill();
+    g.shadowBlur = 0;
+    // Mouth fire glow
+    g.fillStyle = `rgba(255,${90 + Math.floor(60 * Math.abs(Math.sin(t * 6)))},20,0.9)`;
+    g.beginPath();
+    g.moveTo(hx + 8, hy + 6);
+    g.lineTo(hx + 30, hy + 4);
+    g.lineTo(hx + 24, hy + 10);
+    g.closePath();
+    g.fill();
+    // Teeth
+    g.fillStyle = '#e8e1d0';
+    for (let i = 0; i < 4; i++) {
+      const fx = hx + 12 + i * 5;
+      g.beginPath(); g.moveTo(fx, hy + 5); g.lineTo(fx + 2, hy + 9); g.lineTo(fx + 4, hy + 5); g.fill();
+    }
+    // Horns
+    g.fillStyle = '#4a3f52';
+    g.beginPath(); g.moveTo(hx - 12, hy - 10); g.lineTo(hx - 30, hy - 30); g.lineTo(hx - 4, hy - 13); g.fill();
+    g.beginPath(); g.moveTo(hx - 4, hy - 13); g.lineTo(hx - 14, hy - 34); g.lineTo(hx + 4, hy - 14); g.fill();
+    // Eye
+    g.save();
+    g.shadowColor = '#ff1a00';
+    g.shadowBlur = 14;
+    g.fillStyle = '#ff3b1a';
+    g.beginPath(); g.ellipse(hx + 2, hy - 5, 4.5, 2.6, -0.2, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#ffe14a';
+    g.fillRect(hx + 1.5, hy - 7, 1.2, 4);
+    g.restore();
+    // Smoke from nostrils
+    g.fillStyle = 'rgba(160,150,170,0.25)';
+    for (let i = 0; i < 3; i++) {
+      const k = (t * 0.8 + i / 3) % 1;
+      g.beginPath(); g.arc(hx + 32 + k * 18, hy - 2 - k * 22, 3 + k * 7, 0, Math.PI * 2); g.fill();
+    }
+
+    // Near wing (in front of body)
+    drawDragonWing(g, 0.45 + 0.55 * beat * -1, 'rgba(22,16,30,0.94)', '#3b2f48');
+    g.restore();
+  }
+
   function drawWizard(g, x, y, t, wandReady, hero) {
     g.save();
     g.translate(x, y);
@@ -421,6 +597,8 @@
     hero: HEROES[load(HERO_KEY, 'hermione')] ? load(HERO_KEY, 'hermione') : 'hermione',
     shots: 0,
     stupefy: 0,
+    dragon: null,
+    dragonBanner: 0,
     player: { x: W / 2, cooldown: 0, invuln: 0 },
     playerBolts: [],
     enemyBolts: [],
@@ -492,6 +670,8 @@
     game.shields = buildShields();
     game.snitch = null;
     game.snitchTimer = rand(10, 18);
+    game.dragon = null;
+    game.dragonBanner = 0;
     game.fireTimer = 1.5;
     game.beatTimer = 0;
     game.player.x = W / 2;
@@ -538,10 +718,13 @@
     }
     updateBest();
     const invaded = game.endReason === 'invasion';
-    els.gameoverTitle.textContent = invaded ? 'Hogwarts Has Fallen' : 'The Dementors Prevail';
-    els.gameoverText.textContent = invaded
-      ? 'The Dark forces reached the castle walls.'
-      : 'Your last life slipped away into the cold.';
+    const burned = game.endReason === 'dragon';
+    els.gameoverTitle.textContent = burned ? 'Hogwarts Burns' : invaded ? 'Hogwarts Has Fallen' : 'The Dementors Prevail';
+    els.gameoverText.textContent = burned
+      ? 'The dragon reached the ground and set the castle ablaze.'
+      : invaded
+        ? 'The Dark forces reached the castle walls.'
+        : 'Your last life slipped away into the cold.';
     els.finalScore.textContent = game.score;
     els.finalLevel.textContent = game.level;
     els.newBest.classList.toggle('hidden', !isBest || game.score === 0);
@@ -677,6 +860,7 @@
       } else {
         sfx.cast();
       }
+      if (game.shots % DRAGON_EVERY === 0 && !game.dragon) spawnDragon();
     }
 
     // Formation
@@ -755,6 +939,7 @@
           return false;
         }
       }
+      if (game.dragon && hitDragon(game.dragon, rect, b)) return false;
       return true;
     });
 
@@ -826,13 +1011,88 @@
       }
     }
 
-    if (game.state === 'playing' && game.alive === 0) {
+    if (game.dragon) updateDragon(game.dragon, dt);
+    game.dragonBanner = Math.max(0, game.dragonBanner - dt);
+
+    if (game.state === 'playing' && game.alive === 0 && !game.dragon) {
       game.state = 'levelclear';
       game.timer = LEVEL_CLEAR_S;
       game.enemyBolts = [];
       game.playerBolts = [];
       game.snitch = null;
       sfx.clear();
+    }
+  }
+
+  function spawnDragon() {
+    const dir = Math.random() < 0.5 ? 1 : -1;
+    game.dragon = { x: dir > 0 ? -220 : W + 220, y: HUD_H + 80, dir, t: 0, hp: DRAGON_HEAD_HP, flash: 0, entered: false };
+    game.dragonBanner = DRAGON_BANNER_S;
+    sfx.roar();
+  }
+
+  function dragonHead(d) {
+    return { x: d.x + d.dir * DRAGON_HEAD_X * DRAGON_SCALE, y: d.y + DRAGON_HEAD_Y * DRAGON_SCALE };
+  }
+
+  function dragonBody(d) {
+    const S = DRAGON_SCALE;
+    return { x: d.x - 78 * S, y: d.y - 26 * S, w: 156 * S, h: 52 * S };
+  }
+
+  function hitDragon(d, rect, bolt) {
+    const h = dragonHead(d);
+    const nx = Math.max(rect.x, Math.min(h.x, rect.x + rect.w));
+    const ny = Math.max(rect.y, Math.min(h.y, rect.y + rect.h));
+    if (Math.hypot(nx - h.x, ny - h.y) <= DRAGON_HEAD_R * DRAGON_SCALE) {
+      d.hp -= bolt.big ? DRAGON_HEAD_HP : 1;
+      d.flash = 0.15;
+      burst(h.x, h.y, ['#ff5a36', '#ffd84a', '#ffffff'], 16, 180);
+      if (d.hp <= 0) killDragon(d);
+      else { floatText(h.x, h.y - 24, `${d.hp} more!`, '#ff8a5a'); sfx.dragonHit(); }
+      return true;
+    }
+    const body = dragonBody(d);
+    if (overlap(rect, body)) {
+      burst(rect.x + rect.w / 2, body.y + body.h, ['#7a6f86', '#cfc6d8'], 6, 90);
+      sfx.dragonArmor();
+      return true;
+    }
+    return false;
+  }
+
+  function killDragon(d) {
+    const pts = 500 + 100 * (game.level - 1);
+    game.score += pts;
+    const h = dragonHead(d);
+    burst(h.x, h.y, ['#ff3b3b', '#ffd84a', '#ffffff'], 50, 280);
+    burst(d.x, d.y, ['#2a2233', '#5a4b66', '#ff5a36', '#ffd84a'], 70, 240);
+    floatText(d.x, d.y - 40, `+${pts} Dragon slain!`);
+    game.dragon = null;
+    game.dragonBanner = 0;
+    sfx.dragonDie();
+  }
+
+  function updateDragon(d, dt) {
+    const p = levelParams(game.level);
+    d.t += dt;
+    d.flash = Math.max(0, d.flash - dt);
+    d.x += d.dir * DRAGON_SPEED * dt;
+    const margin = 140 * DRAGON_SCALE;
+    if (!d.entered && d.x > margin && d.x < W - margin) d.entered = true;
+    if (d.entered) {
+      if (d.dir > 0 && d.x > W - margin) d.dir = -1;
+      else if (d.dir < 0 && d.x < margin) d.dir = 1;
+    }
+    d.y += DRAGON_DESCENT * (1 + 0.12 * (p.baseSpeed / 30 - 1)) * dt;
+    const body = dragonBody(d);
+    if (body.y + body.h + 14 >= SHIELD_Y) erodeShields({ ...body, h: body.h + 14 });
+    if (d.y >= DRAGON_LAND_Y && game.state === 'playing') {
+      burst(d.x, PLAYER_Y - 10, ['#ff5a36', '#ffd84a', '#ae0001', '#2a2233'], 80, 300);
+      game.dragon = null;
+      if (game.lives <= 1) game.endReason = 'dragon';
+      floatText(W / 2, H / 2, 'The dragon landed!', '#ff5a36');
+      playerHit();
     }
   }
 
@@ -886,6 +1146,8 @@
       }
     }
     g.restore();
+
+    if (game.dragon) drawDragon(g, game.dragon);
 
     for (const e of game.enemies) {
       if (!e.alive) continue;
@@ -987,6 +1249,26 @@
       g.restore();
     }
 
+    if (game.dragonBanner > 0 && game.state === 'playing') {
+      g.save();
+      g.globalAlpha = Math.min(1, game.dragonBanner / 0.4);
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.font = 'bold 40px "Palatino Linotype", Palatino, Georgia, serif';
+      g.shadowColor = '#ff3b1a';
+      g.shadowBlur = 20;
+      g.lineWidth = 5;
+      g.strokeStyle = '#1a0606';
+      g.strokeText('A DRAGON APPROACHES!', W / 2, H * 0.6);
+      g.fillStyle = '#ff5a1f';
+      g.fillText('A DRAGON APPROACHES!', W / 2, H * 0.6);
+      g.shadowBlur = 0;
+      g.font = 'italic 18px "Palatino Linotype", Palatino, Georgia, serif';
+      g.fillStyle = '#f1e9d6';
+      g.fillText('Hit its head before it reaches the ground', W / 2, H * 0.6 + 34);
+      g.restore();
+    }
+
     if (game.state === 'levelclear') {
       banner(g, 'Mischief Managed!', `Level ${game.level} cleared \u2014 brace yourself for level ${game.level + 1}`);
     } else if (game.state === 'playing' && game.banner > 0) {
@@ -1041,6 +1323,14 @@
     } else {
       g.fillStyle = '#a99d84';
       g.fillText(`STUPEFY IN ${toGo}`, 478, HUD_H / 2);
+    }
+    g.font = 'bold 14px "Palatino Linotype", Palatino, Georgia, serif';
+    if (game.dragon) {
+      g.fillStyle = Math.floor(game.time * 3) % 2 ? '#ff5a1f' : '#f3d77a';
+      g.fillText(`DRAGON ${'\u2665'.repeat(game.dragon.hp)}`, 180, HUD_H / 2);
+    } else {
+      g.fillStyle = '#a99d84';
+      g.fillText(`DRAGON IN ${DRAGON_EVERY - (game.shots % DRAGON_EVERY)}`, 180, HUD_H / 2);
     }
     g.font = 'bold 17px "Palatino Linotype", Palatino, Georgia, serif';
     g.textAlign = 'right';
